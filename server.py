@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
@@ -41,31 +40,33 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 API_KEYS = set(filter(None, os.getenv("API_KEYS", "").split(",")))
 
-# CORS Configuration - UPDATED FOR RENDER
-allowed_origins = [
-    "https://safereach-api.onrender.com",  # Replace with your Render URL
-    "capacitor://localhost",
-    "ionic://localhost"
-]
+# ✅ FIXED: Proper CORS Configuration for Render
+logger.info(f"Starting SafeReach API in {ENVIRONMENT} mode")
 
-# Allow localhost only in development
-if ENVIRONMENT == "development":
-    allowed_origins.extend([
+if ENVIRONMENT == "production":
+    # Production: Allow all origins (since we don't know client domains in advance)
+    allowed_origins = ["*"]
+    logger.info("CORS: Allowing all origins (production mode)")
+else:
+    # Development: Specific origins
+    allowed_origins = [
         "http://localhost:3000",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
-        "http://192.168.1.9:8000"  # Your local IP
-    ])
-else:
-    # In production, allow all origins (or specify your domains)
-    allowed_origins = ["*"]  # Change this to your actual domains in production
+        "http://192.168.1.9:8000",
+        "capacitor://localhost",
+        "ionic://localhost",
+        "https://safereach.onrender.com"
+    ]
+    logger.info(f"CORS: Allowing specific origins (development mode)")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "X-API-Key"],
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"]
 )
 
 # Mount static files
@@ -74,9 +75,12 @@ if os.path.exists(FRONTEND_DIR):
     app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
     app.mount("/frontend", StaticFiles(directory=FRONTEND_DIR), name="frontend")
     logger.info(f"Frontend directory mounted: {FRONTEND_DIR}")
+else:
+    logger.warning(f"Frontend directory not found: {FRONTEND_DIR}")
 
-# Database setup with persistent storage on Render
+# Database setup
 DB_PATH = os.path.join(os.path.dirname(__file__), 'locations.db')
+logger.info(f"Database path: {DB_PATH}")
 
 def init_db():
     """Initialize SQLite database"""
@@ -129,15 +133,15 @@ def init_db():
         
         conn.commit()
         conn.close()
-        logger.info(f"Database initialized successfully at {DB_PATH}")
+        logger.info(f"✅ Database initialized successfully at {DB_PATH}")
     except Exception as e:
-        logger.error(f"Database initialization failed: {e}")
+        logger.error(f"❌ Database initialization failed: {e}")
         raise
 
 # Initialize database on startup
 init_db()
 
-# Pydantic Models (same as before)
+# Pydantic Models
 class Loc(BaseModel):
     lat: Optional[float] = Field(None, ge=-90, le=90)
     lng: Optional[float] = Field(None, ge=-180, le=180)
@@ -190,22 +194,36 @@ class ResetTripRequest(BaseModel):
     def sanitize_user_id(cls, v):
         return v.replace("'", "").replace('"', "").replace(";", "").strip()
 
-# Health Check Endpoint
+# ✅ IMPROVED: Health Check with detailed diagnostics
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for Render monitoring"""
+    """Health check endpoint for monitoring"""
     try:
+        # Test database
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute('SELECT 1')
+        c.execute('SELECT COUNT(*) FROM locations')
+        location_count = c.fetchone()[0]
+        c.execute('SELECT COUNT(*) FROM user_trips')
+        trip_count = c.fetchone()[0]
         conn.close()
+        
+        # Check environment variables
+        has_twilio = bool(os.getenv("TWILIO_NUMBER"))
+        has_gmaps = bool(os.getenv("GMAPS_API_KEY"))
         
         return {
             "status": "healthy",
             "timestamp": datetime.utcnow().isoformat(),
             "environment": ENVIRONMENT,
             "checks": {
-                "database": "ok"
+                "database": "ok",
+                "twilio_configured": has_twilio,
+                "gmaps_configured": has_gmaps
+            },
+            "stats": {
+                "total_locations": location_count,
+                "total_trips": trip_count
             }
         }
     except Exception as e:
@@ -214,7 +232,8 @@ async def health_check():
             status_code=503,
             content={
                 "status": "unhealthy",
-                "error": str(e)
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat()
             }
         )
 
@@ -223,19 +242,42 @@ async def health_check():
 def home():
     frontend_path = os.path.join(FRONTEND_DIR, 'index.html')
     if os.path.exists(frontend_path):
+        logger.info("Serving frontend index.html")
         return frontend_path
     else:
+        logger.warning("Frontend index.html not found, serving fallback HTML")
         return HTMLResponse("""
         <!DOCTYPE html>
         <html>
-        <head><title>SafeReach API</title></head>
-        <body style="font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px;">
+        <head>
+            <title>SafeReach API</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+                body { font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px; }
+                .status { padding: 10px; border-radius: 5px; margin: 10px 0; }
+                .success { background: #d4edda; color: #155724; }
+                code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; }
+            </style>
+        </head>
+        <body>
             <h1>🚗 SafeReach API</h1>
-            <p>API is running successfully!</p>
+            <div class="status success">✅ API is running successfully!</div>
+            
+            <h3>Quick Start:</h3>
             <ul>
                 <li><a href="/docs">📚 API Documentation</a></li>
                 <li><a href="/health">🏥 Health Check</a></li>
             </ul>
+            
+            <h3>For Mobile App:</h3>
+            <p>Set API base URL in your app to:</p>
+            <code>https://safereach.onrender.com</code>
+            
+            <h3>Testing Connection:</h3>
+            <p>Run in browser console:</p>
+            <code>fetch('https://safereach.onrender.com/health').then(r=>r.json()).then(console.log)</code>
+            
             <p><em>Environment: """ + ENVIRONMENT + """</em></p>
         </body>
         </html>
@@ -544,3 +586,4 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
 
     uvicorn.run(app, host="0.0.0.0", port=port)
+
