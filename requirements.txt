@@ -1,0 +1,27 @@
+gunicorn==22.0.0
+uvicorn==0.29.0
+fastapi==0.115.6
+
+SQLAlchemy==2.0.30
+alembic==1.4.3
+psycopg2-binary
+
+pydantic==2.11.7
+pydantic-settings==2.7.0
+pydantic_core==2.33.2
+
+python-dotenv==1.0.1
+
+geopy==2.4.1
+twilio==9.8.0
+googlemaps==4.10.0
+
+# Auth
+passlib[bcrypt]
+bcrypt==4.0.1
+python-jose[cryptography]==3.3.0
+
+slowapi==0.1.9
+cachetools==5.3.2
+redis==5.0.8
+celery==5.4.0

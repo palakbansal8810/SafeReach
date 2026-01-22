@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeReach - Arrival Notifier</title>
+    <!-- Fixed paths - remove /frontend/ prefix -->
+    <link rel="stylesheet" href="styles.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#667eea">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <h1> SafeReach</h1>
+                <p>Let your loved ones know when you've arrived safely</p>
+            </div>
+        </header>
+
+        <!-- Tracking Banner (shows when tracking is active) -->
+        <div id="trackingBanner" class="tracking-banner hidden" role="status" aria-live="polite">
+            <span id="trackingBannerText">
+                <span id="trackingBannerStatus">Tracking active</span>
+                <span id="trackingBannerMode" class="tracking-mode-indicator"></span>
+            </span>
+            <button id="installPwaBtn" class="btn btn-secondary hidden">Install</button>
+            <button id="stopTrackingBtn" class="btn btn-danger" style="margin-left:12px;">Stop</button>
+        </div>
+
+        <!-- Main Content -->
+        <main class="app-main">
+            <!-- Step 1: Location Permission -->
+            <section id="step-permission" class="step active">
+                <div class="step-content">
+                    <div class="icon-circle">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                    </div>
+                    <h2>Welcome to SafeReach</h2>
+                    <p class="step-description">Get started by allowing location access</p>
+                    
+                    <div class="input-group">
+                        <label for="userId">Your Name / User ID</label>
+                        <input type="text" id="userId" placeholder="Enter your name" autocomplete="off">
+                    </div>
+
+                    <button id="requestLocationBtn" class="btn btn-primary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                        Enable Location Access
+                    </button>
+
+                    <div id="permissionError" class="error-message hidden"></div>
+                    <div id="permissionSuccess" class="success-message hidden"></div>
+                </div>
+            </section>
+
+            <!-- Step 2: Add Contacts -->
+            <section id="step-contacts" class="step">
+                <div class="step-content">
+                    <div class="icon-circle">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </div>
+                    <h2>Emergency Contacts</h2>
+                    <p class="step-description">Add contacts who will be notified when you arrive</p>
+
+                    <div class="contact-form">
+                        <div class="input-group">
+                            <label for="contactName">Contact Name</label>
+                            <input type="text" id="contactName" placeholder="e.g., Mom, Dad" autocomplete="off">
+                        </div>
+                        <div class="input-group">
+                            <label for="contactPhone">Phone Number</label>
+                            <input type="tel" id="contactPhone" placeholder="+918810447061" autocomplete="off">
+                        </div>
+                        <button id="addContactBtn" class="btn btn-add">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                            Add Contact
+                        </button>
+                    </div>
+
+                    <div id="contactsError" class="error-message hidden"></div>
+
+                    <div id="contactsList" class="contacts-list">
+                        <div class="empty-state">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity="0.3">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                            </svg>
+                            <p>No contacts added yet</p>
+                        </div>
+                    </div>
+
+                    <button id="nextToMapBtn" class="btn btn-primary hidden">
+                        Next: Select Destination
+                    </button>
+                </div>
+            </section>
+
+            <!-- Step 3: Select Destination on Map -->
+            <section id="step-destination" class="step">
+                <div class="step-content">
+                    <div class="icon-circle">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                    </div>
+                    <h2>Select Your Destination</h2>
+            <!-- Click on map for selecting destination text-->
+                        <p class="step-description">Click on the map to set your destination or from nearby places</p>
+            
+
+                    <!-- Map Container -->
+                    <div id="mapContainer" class="map-container">
+                        <div id="map" class="map"></div>
+                        <div class="map-overlay">
+                            <p>Loading map...</p>
+                        </div>
+                    </div>
+
+                    <!-- Nearby Places Section -->
+                    <div class="destination-controls">
+                        <div class="input-group">
+                            <label for="destinationRadius">Arrival Detection Radius: <span id="destinationRadiusDisplay">500</span>m</label>
+                            <input type="range" id="destinationRadius" min="50" max="1000" step="50" value="500">
+                            <small>Adjust radius to update the red detection circle on the map.</small>
+                        </div>
+                        <div class="input-group">
+                            <label for="mapSearchInput">Find place</label>
+                            <!--increase the size of a search text bar -->
+                            <div class="map-search" style="display:flex; gap:8px; align-items:center; width:100%;">
+                                <input type="text" id="mapSearchInput" class="map-search-input" placeholder="Search for a place or address">
+                                <button id="mapSearchBtn" class="btn btn-secondary map-search-btn">🔎</button>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="placeType">Search for</label>
+                            <select id="placeType">
+                                <option value="restaurant">🍽️ Restaurants</option>
+                                <option value="hospital">🏥 Hospitals</option>
+                                <option value="pharmacy">💊 Pharmacy</option>
+                                <option value="atm">🏧 ATM</option>
+                                <option value="bank">🏦 Bank</option>
+                                <option value="gas_station">⛽ Gas Station</option>
+                                <option value="parking">🅿️ Parking</option>
+                                <option value="shopping_mall">🛍️ Shopping Mall</option>
+                                <option value="supermarket">🏪 Supermarket</option>
+                                <option value="gym">💪 Gym</option>
+                                <option value="park">🌳 Park</option>
+                                <option value="library">📚 Library</option>
+                                <option value="school">🏫 School</option>
+                            </select>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="searchRadius">Search Radius: <span id="radiusDisplay">1000</span>m</label>
+                            <input type="range" id="searchRadius" min="500" max="5000" step="500" value="1000">
+                        </div>
+
+                        <button id="searchPlacesBtn" class="btn btn-secondary">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="M21 21l-4.35-4.35"></path>
+                            </svg>
+                            Search Nearby Places
+                        </button>
+
+                    </div>
+
+                    <div id="placesList" class="places-list"></div>
+
+                    <div id="destinationError" class="error-message hidden"></div>
+
+                    <button id="nextToMessageBtn" class="btn btn-primary hidden">
+                        Next: Write Message
+                    </button>
+                </div>
+            </section>
+
+            <!-- Step 4: Write Message -->
+            <section id="step-message" class="step">
+                <div class="step-content">
+                    <div class="icon-circle">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                    </div>
+                    <h2>Customize Your Message</h2>
+                    <p class="step-description">This message will be sent when you arrive at your destination</p>
+
+                    <div id="selectedDestinationInfo" class="destination-info hidden">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                        <div>
+                            <strong id="destinationName">Destination</strong>
+                            <span id="destinationAddress">Address</span>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <label for="customMessage">Arrival Message</label>
+                        <textarea id="customMessage" rows="4" placeholder="I've reached safely!">I've reached safely!</textarea>
+                    </div>
+
+                    <div class="selected-contacts-section">
+                        <h3>Notify These Contacts:</h3>
+                        <div id="contactsCheckboxes" class="contacts-checkboxes"></div>
+                    </div>
+
+                    <div id="messageError" class="error-message hidden"></div>
+
+                    <button id="startTrackingBtn" class="btn btn-primary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        Start Journey Tracking
+                    </button>
+                </div>
+            </section>
+
+            <!-- Step 5: Tracking -->
+            <section id="step-tracking" class="step">
+                <div class="step-content">
+                    <div class="icon-circle pulse">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                            <circle cx="12" cy="10" r="3"></circle>
+                        </svg>
+                    </div>
+                    <h2>Tracking Your Journey</h2>
+                    <p class="step-description">We'll notify your contacts when you arrive</p>
+
+                    <div class="tracking-stats">
+                        <div class="stat-card">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            <div>
+                                <strong>Current Location</strong>
+                                <span id="trackingCurrentLoc">Getting location...</span>
+                                <small id="trackingAccuracy"></small>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            <div>
+                                <strong>Destination</strong>
+                                <span id="trackingDestination">-</span>
+                            </div>
+                        </div>
+
+                        <div class="stat-card highlight">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            <div>
+                                <strong>Distance Remaining</strong>
+                                <span id="trackingDistance" class="distance-large">Calculating...</span>
+                                <small>Detection radius: <span id="trackingRadius">500</span>m</small>
+                            </div>
+                        </div>
+
+                        <div class="stat-card">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                            </svg>
+                            <div>
+                                <strong>Status</strong>
+                                <span id="trackingStatus">Active</span>
+                                <small><span id="updateCount">0</span> location updates</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="progress-container">
+                        <div class="progress-bar">
+                            <div id="progressFill" class="progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <div id="trackingError" class="error-message hidden"></div>
+
+                    <button id="cancelTripBtn" class="btn btn-danger">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Cancel Trip
+                    </button>
+                </div>
+            </section>
+
+            <!-- Step 6: Complete -->
+            <section id="step-complete" class="step">
+                <div class="step-content">
+                    <div class="icon-circle success">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                    </div>
+                    <h2>You've Arrived Safely!</h2>
+                    <p class="step-description">Your contacts have been notified</p>
+
+                    <div class="success-info">
+                        <div class="success-item">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            <span>Message sent to <strong id="sentContactsCount">0</strong> contact(s)</span>
+                        </div>
+                        <div class="success-item">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                                <circle cx="12" cy="10" r="3"></circle>
+                            </svg>
+                            <span>Arrived at <strong id="arrivedDestinationName">-</strong></span>
+                        </div>
+                        <div class="success-item">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            <span>Journey completed at <strong id="arrivalTime">-</strong></span>
+                        </div>
+                    </div>
+
+                    <button id="startNewJourneyBtn" class="btn btn-primary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                        Start New Journey
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p><strong>Privacy:</strong> Your location data is only tracked during active journeys</p>
+            <p>Made with ❤️ for your safety</p>
+        </footer>
+    </div>
+
+    <!-- Google Maps API -->
+    <script>
+        const GMAPS_API_KEY = window.GMAPS_API_KEY || 'AIzaSyC62Cg6PzbIHkeQL_v9IH8MpQ5WYSoiyEM';
+        const script = document.createElement('script');
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${GMAPS_API_KEY}&libraries=places&callback=initMapCallback`;
+        script.async = true;
+        script.defer = true;
+        window.initMapCallback = function() {
+            console.log('Google Maps API loaded');
+        };
+        document.head.appendChild(script);
+    </script>
+
+    <!-- Capacitor (native bridge) -->
+    <!-- In a real Android/iOS build, Capacitor injects/provides this file. In a browser it may 404 (that's OK). -->
+    <script src="capacitor.js"></script>
+    <script>
+        // Expose native plugins via the Capacitor bridge (no CDN imports; those won't talk to native plugins).
+        window.isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+        const getPlugin = (name) => {
+            if (!window.Capacitor) return null;
+            if (window.Capacitor.Plugins && window.Capacitor.Plugins[name]) return window.Capacitor.Plugins[name];
+            if (window.Capacitor.registerPlugin) return window.Capacitor.registerPlugin(name);
+            return null;
+        };
+
+        window.CapacitorGeolocation = getPlugin('Geolocation');
+        window.CapacitorApp = getPlugin('App');
+        window.BackgroundGeolocation = getPlugin('BackgroundGeolocation');
+
+        console.log('Capacitor bridge ready. Native:', window.isNative, {
+            hasGeolocation: !!window.CapacitorGeolocation,
+            hasApp: !!window.CapacitorApp,
+            hasBackgroundGeolocation: !!window.BackgroundGeolocation
+        });
+    </script>
+
+    <!-- Main app.js - fixed path -->
+    <script src="app.js"></script>
+</body>
+</html>
