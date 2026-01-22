@@ -496,7 +496,16 @@ async def reset_trip_new(request: Request, req: ResetTripRequest):
     except Exception as e:
         logger.error(f"Error resetting trip: {e}")
         raise HTTPException(status_code=500, detail="Failed to reset trip")
-
+        
+async def verify_api_key(x_api_key: str = Header(None)):
+    # Skip in development
+    if ENVIRONMENT == "development":
+        return True
+    
+    if not x_api_key or x_api_key not in API_KEYS:
+        logger.warning(f"Invalid API key attempt")
+        raise HTTPException(status_code=403, detail="Invalid or missing API Key")
+    return x_api_key
 # Data cleanup endpoint (run this periodically)
 @app.post("/admin/cleanup")
 async def cleanup_old_data(days: int = 30, x_api_key: str = Depends(verify_api_key)):
@@ -533,4 +542,5 @@ if __name__ == "__main__":
     import uvicorn
     # Use PORT from environment (Render sets this)
     port = int(os.getenv("PORT", 8000))
+
     uvicorn.run(app, host="0.0.0.0", port=port)
