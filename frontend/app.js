@@ -17,18 +17,53 @@ const getCapacitorPlugin = (name) => {
 };
 
 const getApiBase = () => {
-    // Allow overriding without rebuilding (useful for emulator vs real device)
+    // Priority 1: Check localStorage override (for testing)
     const saved = localStorage.getItem('safereach_api_base');
-    if (saved) return saved.replace(/\/+$/, '');
+    if (isCapacitor()) {
+        const prodUrl = 'https://safereach.onrender.com';
+        console.log('Using production API (Capacitor):', prodUrl);
+        return prodUrl;
+    }
+    if (saved) {
+        const cleanUrl = saved.replace(/\/+$/, ''); // Remove trailing slashes
+        console.log('Using saved API base:', cleanUrl);
+        return cleanUrl;
+    }
 
-    if (!isCapacitor()) return window.location.origin;
+    // Priority 2: Use production server for native apps
 
-    // Android emulator -> host machine
-    // If you're on a real phone, set localStorage safereach_api_base to your PC's LAN IP (ex: http://192.168.x.x:8000)
-    return 'http://10.0.2.2:8000';
+    // Priority 3: If running on Render web (same domain), use relative paths
+    if (window.location.hostname.includes('onrender.com')) {
+        const renderUrl = window.location.origin;
+        console.log('Using Render web origin:', renderUrl);
+        return renderUrl;
+    }
+
+    // Priority 4: Development/localhost - use production server
+    const defaultUrl = 'https://safereach.onrender.com';
+    console.log('Using default production API:', defaultUrl);
+    return defaultUrl;
 };
 
 const API_BASE = getApiBase();
+console.log('🚀 API_BASE set to:', API_BASE);
+
+async function testApiConnection() {
+    try {
+        console.log('Testing API connection to:', API_BASE);
+        const response = await fetch(`${API_BASE}/health`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await response.json();
+        console.log('✅ API connection successful:', data);
+        return true;
+    } catch (error) {
+        console.error('❌ API connection failed:', error);
+        alert(`Cannot connect to server at ${API_BASE}\n\nError: ${error.message}\n\nCheck your internet connection or update API_BASE in localStorage.`);
+        return false;
+    }
+}
 
 // Application State
 const AppState = {
@@ -1116,6 +1151,10 @@ const TrackingService = {
 // Initialize Application
 const App = {
     async init() {
+        const connected = await testApiConnection();
+        if (!connected) {
+            console.warn('API connection test failed - app may not work properly');
+        }
         this.loadSavedData();
         this.setupEventListeners();
         this.updateUI();
